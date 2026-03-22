@@ -23,9 +23,12 @@ from src.models.ocsvm import OCSVMDetector
 from src.models.hybrid import HybridDetector
 
 
-def load_and_preprocess(cfg: dict, data_dir: Path):
+def load_and_preprocess(cfg: dict, data_dir: Path, sample_size: int = 0):
     loader = NSLKDDLoader(str(data_dir))
     train_df, test_df = loader.load()
+    if sample_size > 0:
+        train_df = train_df.sample(n=min(sample_size, len(train_df)), random_state=42)
+        test_df = test_df.sample(n=min(sample_size, len(test_df)), random_state=42)
     preproc = DataPreprocessor(
         categorical_cols=cfg["features"]["categorical"],
         log_transform_cols=cfg["features"].get("log_transform", []),
@@ -56,7 +59,7 @@ def run_model_a(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cf
     return oc.evaluate(X_test, y_test)
 
 
-def run_model_b(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cfg: dict, device: str, models_dir: Path) -> dict:
+def run_model_b(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cfg: dict, device: str, models_dir: Path, batch_size: int = 2048) -> dict:
     """Model B: MAE reconstruction error as anomaly score - DL only."""
     num_features = X_benign.shape[1]
     mae_cfg = cfg["mae"]
@@ -77,14 +80,20 @@ def run_model_b(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cf
         print("Warning: No pretrained MAE. Skipping Model B.")
         return {}
     mae.eval()
-    with torch.no_grad():
-        t_test = torch.from_numpy(X_test.astype(np.float32)).to(device)
-        _, emb, recon = mae(t_test, mask=None, no_mask=True)
-        recon_loss = torch.mean((recon - t_test) ** 2, dim=1).cpu().numpy()
-    # Threshold: median of benign recon loss
-    t_benign = torch.from_numpy(X_benign.astype(np.float32)).to(device)
-    _, _, recon_b = mae(t_benign, mask=None, no_mask=True)
-    loss_b = torch.mean((recon_b - t_benign) ** 2, dim=1).cpu().numpy()
+
+    def _recon_loss(X: np.ndarray) -> np.ndarray:
+        losses = []
+        for i in range(0, len(X), batch_size):
+            batch = X[i : i + batch_size]
+            t = torch.from_numpy(batch.astype(np.float32)).to(device)
+            with torch.no_grad():
+                _, _, recon = mae(t, mask=None, no_mask=True)
+                l = torch.mean((recon - t) ** 2, dim=1).cpu().numpy()
+            losses.append(l)
+        return np.concatenate(losses)
+
+    recon_loss = _recon_loss(X_test)
+    loss_b = _recon_loss(X_benign)
     thresh = np.median(loss_b) + 2 * np.std(loss_b)
     y_pred = (recon_loss > thresh).astype(int)
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
@@ -127,6 +136,8 @@ def main():
     parser.add_argument("--config", default="config/config.yaml")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--output", default="results/ablation_table.csv")
+    parser.add_argument("--fast", action="store_true", help="Use 5k samples to avoid OOM (~2-3 min)")
+    parser.add_argument("--batch-size", type=int, default=1024, help="MAE inference batch size (smaller = less RAM)")
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -136,8 +147,11 @@ def main():
     models_dir = Path(cfg["paths"]["models_dir"])
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
 
+    sample_size = 5000 if args.fast else 0
+    if args.fast:
+        print("FAST MODE: 5k samples (use to avoid OOM on limited RAM)")
     print("Loading and preprocessing data...")
-    X_train, y_train, X_test, y_test, X_benign, _ = load_and_preprocess(cfg, data_dir)
+    X_train, y_train, X_test, y_test, X_benign, _ = load_and_preprocess(cfg, data_dir, sample_size=sample_size)
     print(f"Train: {X_train.shape}, Benign: {X_benign.shape}, Test: {X_test.shape}")
 
     results = {}
@@ -147,7 +161,7 @@ def main():
     print(results["Model_A_AdvML_Only"])
 
     print("Model B: Deep Learning only (MAE reconstruction threshold)...")
-    results["Model_B_DL_Only"] = run_model_b(X_benign, X_test, y_test, cfg, args.device, models_dir)
+    results["Model_B_DL_Only"] = run_model_b(X_benign, X_test, y_test, cfg, args.device, models_dir, batch_size=args.batch_size)
     if results["Model_B_DL_Only"]:
         print(results["Model_B_DL_Only"])
     else:
