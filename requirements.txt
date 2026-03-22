@@ -1,0 +1,29 @@
+# Adaptive Cyber-Physical Security - Phase 1
+# Python 3.9+
+
+# Core ML/DL
+numpy>=1.24.0,<2.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+torch>=2.0.0
+
+# Network & Security
+scapy>=2.5.0
+
+# EDA & Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0
+
+# Data Processing
+scipy>=1.10.0
+pyyaml>=6.0
+
+# Reproducibility
+tqdm>=4.65.0
+joblib>=1.3.0
+
+# Optional: Jupyter for EDA
+jupyter>=1.0.0
+ipykernel>=6.25.0
+notebook>=7.0.0

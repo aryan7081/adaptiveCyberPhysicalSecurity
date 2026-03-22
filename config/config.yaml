@@ -1,0 +1,65 @@
+# Adaptive Cyber-Physical Security - Configuration
+# Ensures reproducibility across runs
+
+project:
+  name: "adaptive_cps"
+  seed: 42
+  phase: 1
+
+paths:
+  data_dir: "data/raw"
+  processed_dir: "data/processed"
+  models_dir: "models"
+  figures_dir: "figures"
+  reports_dir: "reports"
+
+# NSL-KDD dataset - download from https://www.unb.ca/cic/datasets/nsl.html
+# or https://github.com/defcom17/NSL_KDD
+dataset:
+  train_file: "KDDTrain+.txt"
+  test_file: "KDDTest+.txt"
+  train_20_file: "KDDTrain+_20Percent.txt"  # optional subset
+  url_base: "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/"
+  # Filter: train MAE only on benign (normal) traffic
+  benign_label: "normal"
+
+# Feature Engineering
+features:
+  # Categorical columns (NSL-KDD)
+  categorical: ["protocol_type", "service", "flag"]
+  # Columns to log-transform (heavy right skew)
+  log_transform: ["duration", "src_bytes", "dst_bytes"]
+  # Columns excluded from model (e.g., high cardinality, leakage)
+  exclude: []
+  # PCA components for optional dimensionality reduction (0 = disabled)
+  pca_components: 0
+
+# MAE (Masked Autoencoder) - BERT-style pre-training
+mae:
+  # Masking: BERT uses ~15%; we use 15-25% for tabular (less redundancy)
+  mask_ratio: 0.15
+  mask_token_id: -1  # Placeholder for masked positions
+  # Architecture
+  hidden_dim: 128
+  num_layers: 4
+  num_heads: 4
+  dropout: 0.1
+  # Training
+  batch_size: 256
+  epochs: 50
+  lr: 1e-3
+  weight_decay: 1e-5
+  # Xavier/Glorot initialization for stable gradients
+  init: "xavier"
+
+# One-Class SVM (on frozen MAE embeddings)
+ocsvm:
+  kernel: "rbf"
+  nu: 0.01  # Upper bound on fraction of anomalies
+  gamma: "scale"  # 1 / (n_features * X.var())
+
+# Evaluation
+evaluation:
+  metrics: ["accuracy", "precision", "recall", "f1", "roc_auc"]
+  # For anomaly detection: F1 on anomaly class is key
+  primary_metric: "f1"

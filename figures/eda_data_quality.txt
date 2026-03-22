@@ -1,0 +1,5 @@
+Missing values per column:
+Series([], dtype: int64)
+
+Duplicate rows: 0
+Total rows: 148517
