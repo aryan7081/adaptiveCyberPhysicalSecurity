@@ -6,6 +6,7 @@ Produces results table for the report.
 
 import argparse
 import sys
+import warnings
 from pathlib import Path
 
 import yaml
@@ -14,47 +15,39 @@ import pandas as pd
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from src.data.loader import NSLKDDLoader
-from src.data.preprocessing import DataPreprocessor
-from src.features.engineering import FeatureEngineer
+from eval_common import load_and_preprocess
 from src.models.mae import TabularMAE
-from src.models.ocsvm import OCSVMDetector
+from src.torch_io import load_state_dict_checkpoint
+from src.models.ocsvm import OCSVMDetector, parse_ocsvm_section
 from src.models.hybrid import HybridDetector
 
+warnings.filterwarnings(
+    "ignore",
+    message=".*enable_nested_tensor.*",
+    module="torch.nn.modules.transformer",
+)
 
-def load_and_preprocess(cfg: dict, data_dir: Path, sample_size: int = 0):
-    loader = NSLKDDLoader(str(data_dir))
-    train_df, test_df = loader.load()
-    if sample_size > 0:
-        train_df = train_df.sample(n=min(sample_size, len(train_df)), random_state=42)
-        test_df = test_df.sample(n=min(sample_size, len(test_df)), random_state=42)
-    preproc = DataPreprocessor(
-        categorical_cols=cfg["features"]["categorical"],
-        log_transform_cols=cfg["features"].get("log_transform", []),
-    )
-    X_train, y_train = preproc.fit_transform(train_df)
-    X_test, y_test = preproc.transform(test_df, include_label=True)
-    feat_eng = FeatureEngineer(
-        use_ratios=True,
-        use_interactions=True,
-        pca_components=cfg["features"].get("pca_components", 0),
-    )
-    X_train = feat_eng.fit_transform(X_train, preproc.feature_names_)
-    X_test = feat_eng.transform(X_test)
-    train_benign = train_df[train_df["label"].str.lower() == "normal"]
-    X_benign, _ = preproc.transform(train_benign, include_label=False)
-    X_benign = feat_eng.transform(X_benign)
-    return X_train, y_train, X_test, y_test, X_benign, preproc.feature_names_
+
+def _mae_kwargs(cfg: dict, num_features: int) -> dict:
+    m = cfg["mae"]
+    return {
+        "num_features": num_features,
+        "hidden_dim": m["hidden_dim"],
+        "num_layers": m["num_layers"],
+        "num_heads": m["num_heads"],
+        "dropout": m["dropout"],
+        "mask_ratio": m["mask_ratio"],
+        "init": m.get("init", "xavier"),
+        "readout_mode": m.get("readout_mode", "mean_max"),
+    }
 
 
 def run_model_a(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cfg: dict) -> dict:
     """Model A: One-Class SVM on raw (preprocessed) features only - Adv ML only."""
-    oc = OCSVMDetector(
-        kernel=cfg["ocsvm"]["kernel"],
-        nu=cfg["ocsvm"]["nu"],
-        gamma=cfg["ocsvm"]["gamma"],
-    )
+    svm_kw, _, _ = parse_ocsvm_section(cfg["ocsvm"])
+    oc = OCSVMDetector(**svm_kw)
     oc.fit(X_benign)
     return oc.evaluate(X_test, y_test)
 
@@ -64,18 +57,13 @@ def run_model_b(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cf
     num_features = X_benign.shape[1]
     mae_cfg = cfg["mae"]
     mae = TabularMAE(
-        num_features=num_features,
-        hidden_dim=mae_cfg["hidden_dim"],
-        num_layers=mae_cfg["num_layers"],
-        num_heads=mae_cfg["num_heads"],
-        dropout=0,
-        mask_ratio=mae_cfg["mask_ratio"],
+        **_mae_kwargs(cfg, num_features),
     ).to(device)
     mae_path = models_dir / "mae_pretrained.pt"
     if not mae_path.exists():
         mae_path = models_dir / "mae_best.pt"
     if mae_path.exists():
-        mae.load_state_dict(torch.load(mae_path, map_location=device))
+        mae.load_state_dict(load_state_dict_checkpoint(mae_path, device))
     else:
         print("Warning: No pretrained MAE. Skipping Model B.")
         return {}
@@ -109,15 +97,11 @@ def run_model_b(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cf
 def run_model_c(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cfg: dict, device: str, models_dir: Path) -> dict:
     """Model C: Hybrid - MAE (frozen) + One-Class SVM on embeddings."""
     num_features = X_benign.shape[1]
+    mk = _mae_kwargs(cfg, num_features)
+    del mk["num_features"]
     hybrid = HybridDetector(
         num_features=num_features,
-        mae_config={
-            "hidden_dim": cfg["mae"]["hidden_dim"],
-            "num_layers": cfg["mae"]["num_layers"],
-            "num_heads": cfg["mae"]["num_heads"],
-            "dropout": 0,
-            "mask_ratio": cfg["mae"]["mask_ratio"],
-        },
+        mae_config=mk,
         ocsvm_config=cfg["ocsvm"],
         device=device,
     )
@@ -125,7 +109,7 @@ def run_model_c(X_benign: np.ndarray, X_test: np.ndarray, y_test: np.ndarray, cf
     if not mae_path.exists():
         mae_path = models_dir / "mae_best.pt"
     if mae_path.exists():
-        hybrid.mae.load_state_dict(torch.load(mae_path, map_location=device))
+        hybrid.mae.load_state_dict(load_state_dict_checkpoint(mae_path, device))
     hybrid.freeze_encoder()
     hybrid.fit_ocsvm(X_benign)
     return hybrid.evaluate(X_test, y_test)
@@ -151,7 +135,9 @@ def main():
     if args.fast:
         print("FAST MODE: 5k samples (use to avoid OOM on limited RAM)")
     print("Loading and preprocessing data...")
-    X_train, y_train, X_test, y_test, X_benign, _ = load_and_preprocess(cfg, data_dir, sample_size=sample_size)
+    X_train, _y_train, X_test, y_test, X_benign, _ = load_and_preprocess(
+        cfg, data_dir, sample_size=sample_size
+    )
     print(f"Train: {X_train.shape}, Benign: {X_benign.shape}, Test: {X_test.shape}")
 
     results = {}

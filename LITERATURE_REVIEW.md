@@ -67,7 +67,38 @@ Several works combine learned representations with classical anomaly detectors:
 
 ---
 
-## 6. References (for report)
+## 6. Recent Tabular Deep Learning and Anomaly Detection (2020+)
+
+### Tabular representation learning
+**Huang et al. (2020)** — *"TabTransformer: Tabular Data Modeling Using Contextual Embeddings"*. Uses column embeddings + self-attention over categorical tokens; motivates **attention over feature groups** for heterogeneous tables.
+
+**Gorishniy et al. (2021)** — *"Revisiting Deep Learning Models for Tabular Data" (FT-Transformer)*, NeurIPS. Shows **Transformer-style** models with **piecewise embeddings** are **strong tabular baselines** vs. GBDTs on many benchmarks. **Link:** Our MAE uses **per-feature tokens + Transformer**, aligned with this lineage (we add **masking** for self-supervision rather than supervised FT).
+
+**Somepalli et al. (2021)** — *SAINT: Improved Neural Networks for Tabular Data* (embedding both features and samples). **Link:** Highlights that **inductive biases** (attention, inter-feature mixing) matter for tabular; our **mean–max readout** is a lightweight bias for **scale-heavy** network features.
+
+### Deep anomaly detection
+**Ruff et al. (2018)** already connects to **hybrid** boundaries; follow-on work and **surveys** (e.g., *deep anomaly detection* surveys in the 2020s) stress that **pure reconstruction** can be **brittle** under attack diversity, while **explicit boundaries** (one-class, SVDD-style) improve **calibration** in some regimes.
+
+**Positioning our project:** We combine (i) **self-supervised masked modeling** for **representation learning** on **benign-only** NSL-KDD with (ii) a **kernel one-class boundary** on **frozen embeddings**—a **documented hybrid** in the spirit of **deep one-class** and **AE + classical detector** papers, with **tabular-specific readout** and **modern Transformer blocks** rather than a vanilla MLP autoencoder.
+
+---
+
+## 7. Synthesis: From SOTA Components to This System
+
+| Literature line | Typical limitation | Our step |
+|-----------------|-------------------|----------|
+| Classical OCSVM on raw features | Weak on nonlinear manifolds without good kernel/features | Add **MAE embeddings** before OCSVM |
+| Vanilla AE / VAE anomaly score | Threshold on reconstruction only; fuzzy boundary | Keep MAE for features; add **explicit OCSVM** boundary |
+| BERT / MAE (vision/tabular variants) | Often evaluated on supervised or generative tasks | Use **masking objective** for **unsupervised** benign modeling |
+| FT-Transformer / TabTransformer | Supervised training | **Self-supervised** phase + **one-class** second stage |
+
+This positions the work as a **logical composition** of **current tabular Transformer practice** and **established anomaly-detection theory**, with **empirical ablations** (Models A–C, readout modes) in code and reports.
+
+---
+
+## 8. References (for report)
+
+**Foundational / cited in design**
 
 1. M. Tavallaee et al., "A detailed analysis of the KDD CUP 99 data set," IEEE CISDA, 2009.
 2. B. Schölkopf et al., "Estimating the support of a high-dimensional distribution," Neural Computation, 2001.
@@ -75,6 +106,14 @@ Several works combine learned representations with classical anomaly detectors:
 4. J. Devlin et al., "BERT: Pre-training of deep bidirectional transformers," NAACL, 2019.
 5. L. Ruff et al., "Deep one-class classification," ICML, 2018.
 
+**Tabular deep learning (recent context)**
+
+6. X. Huang et al., "TabTransformer: Tabular Data Modeling Using Contextual Embeddings," arXiv:2008.06615, 2020.
+7. Y. Gorishniy et al., "Revisiting Deep Learning Models for Tabular Data," NeurIPS, 2021 (FT-Transformer).
+8. G. Somepalli et al., "SAINT: Improved Neural Networks for Tabular Data," NeurIPS, 2021.
+
+*Add 1–2 **survey** papers on deep anomaly detection (2020+) from your library search to strengthen “State of the Art” narrative if required by the rubric.*
+
 ---
 
-*Use this for the report's Related Work section and for explaining literature in the viva.*
+*Use this for Related Work, gap analysis, and viva defense. Pair with `THEORY_AND_METHODS.md` for equations and optimization rationale.*

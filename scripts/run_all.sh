@@ -17,7 +17,13 @@ python figures/architecture_diagram.py
 echo "[4/5] Pre-training MAE..."
 python scripts/train_mae.py
 
-echo "[5/5] Running ablation study..."
+echo "[5/7] Running ablation study..."
 python scripts/run_ablation.py
 
-echo "=== Done. Check results/ablation_table.csv and figures/ ==="
+echo "[6/7] Validation report (confusion matrix, ROC, robustness)..."
+python scripts/validation_report.py --fast
+
+echo "[7/7] Optional: SHAP plots (install shap)..."
+python scripts/explainability.py --mode raw --fast || true
+
+echo "=== Done. Check results/, reports/, figures/ ==="

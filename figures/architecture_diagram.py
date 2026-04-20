@@ -34,8 +34,8 @@ def arrow(ax, start, end, label=""):
 # Data flow
 box(ax, (1, 6), 2, 1.2, "Raw NSL-KDD\n(Benign)", c_data)
 box(ax, (1, 4), 2, 1.2, "Preprocessing\n+ Features", c_data)
-box(ax, (4, 5), 2.5, 1.8, "MAE Encoder\n(BERT-style mask)", c_mae)
-box(ax, (4, 2.5), 2.5, 1.5, "Frozen Encoder\nEmbeddings", c_mae)
+box(ax, (4, 5), 2.5, 1.8, "MAE Encoder\n(mask + Transformer)", c_mae)
+box(ax, (4, 2.5), 2.5, 1.5, "Readout: mean+max\n→ embedding", c_mae)
 box(ax, (7.5, 4), 2.2, 1.5, "One-Class SVM\n(Decision Boundary)", c_ocsvm)
 box(ax, (10, 4), 1.5, 1.2, "Anomaly\nScore", c_output)
 

@@ -38,6 +38,8 @@ class TabularMAE(nn.Module):
     - Encoder: processes only unmasked positions (efficient)
     - Decoder: reconstructs masked values from latent + mask tokens
     - Mask ratio ~15% (BERT standard) for tabular
+    - Readout: optional mean+max pooling fusion (tabular-specific context aggregation;
+      stronger inductive bias than mean-only for heterogeneous feature scales).
     """
 
     def __init__(
@@ -49,11 +51,13 @@ class TabularMAE(nn.Module):
         dropout: float = 0.1,
         mask_ratio: float = 0.15,
         init: str = "xavier",
+        readout_mode: str = "mean_max",
     ):
         super().__init__()
         self.num_features = num_features
         self.mask_ratio = mask_ratio
         self.hidden_dim = hidden_dim
+        self.readout_mode = readout_mode
 
         # Input projection
         self.input_proj = nn.Linear(1, hidden_dim)  # Each feature value -> hidden
@@ -87,6 +91,17 @@ class TabularMAE(nn.Module):
         )
         self.reconstruct_head = nn.Linear(hidden_dim, 1)
 
+        if readout_mode == "mean_max":
+            self.readout = nn.Sequential(
+                nn.Linear(hidden_dim * 2, hidden_dim),
+                nn.GELU(),
+                nn.LayerNorm(hidden_dim),
+            )
+        elif readout_mode == "mean":
+            self.readout = None
+        else:
+            raise ValueError("readout_mode must be 'mean' or 'mean_max'")
+
         self._init_weights(init)
 
     def _init_weights(self, init: str):
@@ -102,6 +117,14 @@ class TabularMAE(nn.Module):
             elif isinstance(m, nn.LayerNorm):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
+
+    def _sequence_to_embedding(self, encoded: torch.Tensor) -> torch.Tensor:
+        """Aggregate token sequence to a fixed-size vector for OCSVM."""
+        if self.readout_mode == "mean_max":
+            mean_p = encoded.mean(dim=1)
+            max_p = encoded.max(dim=1).values
+            return self.readout(torch.cat([mean_p, max_p], dim=-1))
+        return encoded.mean(dim=1)
 
     def _create_mask(self, B: int, L: int, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -150,8 +173,7 @@ class TabularMAE(nn.Module):
         encoded = self.encoder(tokens)
         encoded = self.encoder_norm(encoded)
 
-        # Global embedding: mean over sequence (for downstream OCSVM)
-        embedding = encoded.mean(dim=1)  # [B, H]
+        embedding = self._sequence_to_embedding(encoded)  # [B, H]
 
         if return_embedding:
             return embedding
@@ -178,4 +200,4 @@ class TabularMAE(nn.Module):
         tokens = self.pos_enc(tokens)
         encoded = self.encoder(tokens)
         encoded = self.encoder_norm(encoded)
-        return encoded.mean(dim=1)
+        return self._sequence_to_embedding(encoded)

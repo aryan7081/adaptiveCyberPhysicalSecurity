@@ -3,7 +3,7 @@ One-Class SVM for Anomaly Detection
 Uses embeddings from frozen MAE encoder to define decision boundaries.
 """
 
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 from sklearn.svm import OneClassSVM
@@ -15,6 +15,23 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 import joblib
+
+
+def parse_ocsvm_section(raw: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], int, Optional[int]]:
+    """
+    Split config['ocsvm'] into (sklearn OneClassSVM kwargs, embedding_batch_size, max_fit_samples).
+    max_fit_samples caps benign rows for Hybrid OCSVM fitting (RAM); None = use all.
+    """
+    d = dict(raw or {})
+    embedding_batch_size = int(d.pop("embedding_batch_size", 2048))
+    mfs = d.pop("max_fit_samples", None)
+    max_fit_samples: Optional[int]
+    if mfs is None or mfs == "null":
+        max_fit_samples = None
+    else:
+        max_fit_samples = int(mfs)
+    svm_kw = {k: d[k] for k in ("kernel", "nu", "gamma") if k in d}
+    return svm_kw, embedding_batch_size, max_fit_samples
 
 
 class OCSVMDetector:

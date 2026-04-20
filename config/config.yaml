@@ -44,11 +44,19 @@ mae:
   num_layers: 4
   num_heads: 4
   dropout: 0.1
+  # mean_max: fuse mean & max token pooling (tabular readout); mean: ablation
+  readout_mode: "mean_max"
   # Training
   batch_size: 256
   epochs: 50
   lr: 1e-3
   weight_decay: 1e-5
+  val_ratio: 0.15
+  early_stopping_patience: 12
+  # cosine | plateau | none
+  lr_scheduler: "cosine"
+  # Tabular Mixup for reconstruction (0 = off)
+  mixup_alpha: 0.15
   # Xavier/Glorot initialization for stable gradients
   init: "xavier"
 
@@ -57,6 +65,10 @@ ocsvm:
   kernel: "rbf"
   nu: 0.01  # Upper bound on fraction of anomalies
   gamma: "scale"  # 1 / (n_features * X.var())
+  # MAE embedding inference batch (lower if OS kills the process — was single 67k batch)
+  embedding_batch_size: 1024
+  # Optional cap on benign rows for OCSVM.fit only (null = all). Use if fit still OOMs.
+  max_fit_samples: null
 
 # Evaluation
 evaluation:

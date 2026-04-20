@@ -23,6 +23,9 @@ pyyaml>=6.0
 tqdm>=4.65.0
 joblib>=1.3.0
 
+# Explainability (optional: python scripts/explainability.py)
+shap>=0.44.0
+
 # Optional: Jupyter for EDA
 jupyter>=1.0.0
 ipykernel>=6.25.0
