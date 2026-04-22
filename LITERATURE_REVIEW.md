@@ -100,17 +100,17 @@ This positions the work as a **logical composition** of **current tabular Transf
 
 **Foundational / cited in design**
 
-1. M. Tavallaee et al., "A detailed analysis of the KDD CUP 99 data set," IEEE CISDA, 2009.
-2. B. Schölkopf et al., "Estimating the support of a high-dimensional distribution," Neural Computation, 2001.
-3. D. P. Kingma and M. Welling, "Auto-encoding variational bayes," ICLR, 2014.
-4. J. Devlin et al., "BERT: Pre-training of deep bidirectional transformers," NAACL, 2019.
-5. L. Ruff et al., "Deep one-class classification," ICML, 2018.
+1. M. Tavallaee et al., "A detailed analysis of the KDD CUP 99 data set," IEEE CISDA, 2009. [IEEE Xplore](https://ieeexplore.ieee.org/document/5356528) · [Dataset (UNB/CIC)](https://www.unb.ca/cic/datasets/nsl.html)
+2. B. Schölkopf et al., "Estimating the support of a high-dimensional distribution," *Neural Computation*, 2001. [MIT Press / DOI](https://direct.mit.edu/neco/article-abstract/13/7/1443/6009)
+3. D. P. Kingma and M. Welling, "Auto-encoding variational bayes," ICLR, 2014. [arXiv:1312.6114](https://arxiv.org/abs/1312.6114)
+4. J. Devlin et al., "BERT: Pre-training of deep bidirectional transformers," NAACL, 2019. [arXiv:1810.04805](https://arxiv.org/abs/1810.04805)
+5. L. Ruff et al., "Deep one-class classification," ICML, 2018. [PMLR proceedings](http://proceedings.mlr.press/v80/ruff18a.html) · [arXiv:1801.05365](https://arxiv.org/abs/1801.05365)
 
 **Tabular deep learning (recent context)**
 
-6. X. Huang et al., "TabTransformer: Tabular Data Modeling Using Contextual Embeddings," arXiv:2008.06615, 2020.
-7. Y. Gorishniy et al., "Revisiting Deep Learning Models for Tabular Data," NeurIPS, 2021 (FT-Transformer).
-8. G. Somepalli et al., "SAINT: Improved Neural Networks for Tabular Data," NeurIPS, 2021.
+6. X. Huang et al., "TabTransformer: Tabular Data Modeling Using Contextual Embeddings," arXiv:2008.06615, 2020. [arXiv](https://arxiv.org/abs/2008.06615)
+7. Y. Gorishniy et al., "Revisiting Deep Learning Models for Tabular Data," NeurIPS, 2021 (FT-Transformer). [arXiv:2106.11959](https://arxiv.org/abs/2106.11959)
+8. G. Somepalli et al., "SAINT: Improved Neural Networks for Tabular Data," NeurIPS, 2021. [arXiv:2106.01342](https://arxiv.org/abs/2106.01342)
 
 *Add 1–2 **survey** papers on deep anomaly detection (2020+) from your library search to strengthen “State of the Art” narrative if required by the rubric.*
 
