@@ -27,10 +27,12 @@ class DataPreprocessor:
         categorical_cols: List[str],
         log_transform_cols: Optional[List[str]] = None,
         exclude_cols: Optional[List[str]] = None,
+        benign_labels: Optional[List[str]] = None,
     ):
         self.categorical_cols = [c for c in categorical_cols if c != LABEL_COL]
         self.log_transform_cols = log_transform_cols or []
         self.exclude_cols = exclude_cols or []
+        self.benign_labels = {str(v).strip().lower() for v in (benign_labels or ["normal"])}
         self.label_encoders_ = {}
         self.scaler_ = StandardScaler()
         self.imputer_ = SimpleImputer(strategy="median")
@@ -118,7 +120,7 @@ class DataPreprocessor:
 
         y = None
         if include_label and LABEL_COL in df.columns:
-            y = (df[LABEL_COL].astype(str).str.lower() != "normal").astype(int).values
+            y = (~df[LABEL_COL].astype(str).str.strip().str.lower().isin(self.benign_labels)).astype(int).values
         return X, y
 
     def fit_transform(

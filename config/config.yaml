@@ -13,24 +13,26 @@ paths:
   figures_dir: "figures"
   reports_dir: "reports"
 
-# NSL-KDD dataset - download from https://www.unb.ca/cic/datasets/nsl.html
-# or https://github.com/defcom17/NSL_KDD
 dataset:
-  train_file: "KDDTrain+.txt"
-  test_file: "KDDTest+.txt"
-  train_20_file: "KDDTrain+_20Percent.txt"  # optional subset
-  url_base: "https://raw.githubusercontent.com/defcom17/NSL_KDD/master/"
-  # Filter: train MAE only on benign (normal) traffic
-  benign_label: "normal"
+  # Switched to CIC-IDS (CSV format). Place files under data/raw/.
+  name: "cic_ids"
+  train_file: "cicids2017_all.csv"
+  test_file: null
+  sep: ","
+  label_col: "Label"
+  # If test_file is absent, loader creates deterministic split from train_file.
+  test_size: 0.2
+  # Normal traffic labels for binary anomaly mapping.
+  benign_labels: ["BENIGN"]
 
 # Feature Engineering
 features:
-  # Categorical columns (NSL-KDD)
-  categorical: ["protocol_type", "service", "flag"]
+  # CIC-IDS is mostly numeric; keep categorical list empty unless your CSV has categories.
+  categorical: []
   # Columns to log-transform (heavy right skew)
-  log_transform: ["duration", "src_bytes", "dst_bytes"]
+  log_transform: ["Flow Duration", "Total Fwd Packets", "Total Backward Packets"]
   # Columns excluded from model (e.g., high cardinality, leakage)
-  exclude: []
+  exclude: ["Flow ID", "Source IP", "Source Port", "Destination IP", "Destination Port", "Timestamp"]
   # PCA components for optional dimensionality reduction (0 = disabled)
   pca_components: 0
 
