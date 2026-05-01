@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.data.loader import NSLKDDLoader
+from src.data.loader import create_loader
 from src.data.preprocessing import DataPreprocessor
 from src.features.engineering import FeatureEngineer
 from src.models.mae import TabularMAE
@@ -55,14 +55,23 @@ def main():
     models_dir.mkdir(parents=True, exist_ok=True)
     reports_dir.mkdir(parents=True, exist_ok=True)
 
-    loader = NSLKDDLoader(str(data_dir))
+    ds = cfg["dataset"]
+    loader = create_loader(ds, str(data_dir))
     train_benign, _ = loader.load_benign_only(
-        benign_label=cfg["dataset"]["benign_label"]
+        train_file=ds["train_file"],
+        test_file=ds.get("test_file"),
+        benign_labels=ds.get("benign_labels", [ds.get("benign_label", "normal")]),
+        label_col=ds.get("label_col"),
+        sep=ds.get("sep", ","),
+        test_size=float(ds.get("test_size", 0.2)),
+        random_state=int(cfg["project"].get("seed", 42)),
     )
 
     preproc = DataPreprocessor(
         categorical_cols=cfg["features"]["categorical"],
         log_transform_cols=cfg["features"].get("log_transform", []),
+        exclude_cols=cfg["features"].get("exclude", []),
+        benign_labels=ds.get("benign_labels", [ds.get("benign_label", "normal")]),
     )
     X, _ = preproc.fit_transform(train_benign, include_label=False)
     feature_names = preproc.feature_names_
