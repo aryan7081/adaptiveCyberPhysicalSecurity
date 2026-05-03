@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 
 echo "=== Phase 1: Adaptive CPS Pipeline ==="
 
-echo "[1/5] Downloading NSL-KDD..."
+echo "[1/5] Preparing dataset..."
 python scripts/download_data.py
 
 echo "[2/5] Running EDA..."

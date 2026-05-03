@@ -53,7 +53,7 @@ class FeatureEngineer:
         return -1
 
     def _resolve_indices(self) -> dict:
-        """Resolve feature indices by name. Use standard NSL-KDD order if names available."""
+        """Resolve feature indices by name."""
         idx = self._get_column_index
         return {
             "src_bytes": idx("src_bytes"),
@@ -70,27 +70,28 @@ class FeatureEngineer:
         """Create ratio and interaction features from raw array."""
         extra = []
         m = self._resolve_indices()
-        # Fallback: preprocessor order = numeric (excl. protocol,service,flag) + categorical
-        src_b = m.get("src_bytes", 1)
-        dst_b = m.get("dst_bytes", 2)
-        count_i = m.get("count", 19)
-        srv_count_i = m.get("srv_count", 20)
-        serror_i = m.get("serror_rate", 21)
-        srv_serror_i = m.get("srv_serror_rate", 22)
-        host_count_i = m.get("dst_host_count", 28)
-        host_srv_i = m.get("dst_host_srv_count", 29)
+        src_b = m.get("src_bytes", -1)
+        dst_b = m.get("dst_bytes", -1)
+        count_i = m.get("count", -1)
+        srv_count_i = m.get("srv_count", -1)
+        serror_i = m.get("serror_rate", -1)
+        srv_serror_i = m.get("srv_serror_rate", -1)
+        host_count_i = m.get("dst_host_count", -1)
+        host_srv_i = m.get("dst_host_srv_count", -1)
 
-        if self.use_ratios:
+        if self.use_ratios and src_b >= 0 and dst_b >= 0:
             sb = X[:, src_b]
             db = X[:, dst_b]
             extra.append((sb / (db + 1e-6)).reshape(-1, 1))
+        if self.use_ratios and count_i >= 0 and srv_count_i >= 0:
             cnt = X[:, count_i]
             srv = X[:, srv_count_i]
             extra.append((cnt / (srv + 1e-6)).reshape(-1, 1))
-        if self.use_interactions:
+        if self.use_interactions and serror_i >= 0 and srv_serror_i >= 0:
             e1 = X[:, serror_i]
             e2 = X[:, srv_serror_i]
             extra.append((e1 * e2).reshape(-1, 1))
+        if self.use_interactions and host_count_i >= 0 and host_srv_i >= 0:
             hc = X[:, host_count_i]
             hs = X[:, host_srv_i]
             extra.append((hc * hs / (1 + hc + hs)).reshape(-1, 1))

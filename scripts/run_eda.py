@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Exploratory Data Analysis for NSL-KDD.
-Generates figures and summary statistics for the report.
-"""
+"""Exploratory Data Analysis for configured dataset."""
 
 import sys
 from pathlib import Path
@@ -14,17 +11,30 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.data.loader import NSLKDDLoader, NSL_KDD_COLUMNS, LABEL_COL
+import yaml
+
+from src.data.loader import create_loader, LABEL_COL
 
 
 def main():
-    data_dir = Path(__file__).parent.parent / "data" / "raw"
+    with open(Path(__file__).parent.parent / "config" / "config.yaml") as f:
+        cfg = yaml.safe_load(f)
+    ds = cfg["dataset"]
+    benign_vals = {str(v).strip().lower() for v in ds.get("benign_labels", [ds.get("benign_label", "normal")])}
+    data_dir = Path(__file__).parent.parent / cfg["paths"]["data_dir"]
     figures_dir = Path(__file__).parent.parent / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    loader = NSLKDDLoader(str(data_dir))
+    loader = create_loader(ds, str(data_dir))
     try:
-        train_df, test_df = loader.load()
+        train_df, test_df = loader.load(
+            train_file=ds["train_file"],
+            test_file=ds.get("test_file"),
+            sep=ds.get("sep", ","),
+            label_col=ds.get("label_col"),
+            test_size=float(ds.get("test_size", 0.2)),
+            random_state=int(cfg["project"].get("seed", 42)),
+        )
     except FileNotFoundError as e:
         print(e)
         print("Run: python scripts/download_data.py")
@@ -50,7 +60,7 @@ def main():
     axes[0].invert_yaxis()
 
     # Binary: normal vs attack
-    df["is_attack"] = (df[LABEL_COL].astype(str).str.lower() != "normal").astype(int)
+    df["is_attack"] = (~df[LABEL_COL].astype(str).str.strip().str.lower().isin(benign_vals)).astype(int)
     vc = df["is_attack"].value_counts().sort_index()
     labels = ["Normal" if i == 0 else "Attack" for i in vc.index]
     axes[1].pie(
@@ -66,9 +76,12 @@ def main():
     print("Saved eda_label_distribution.pdf")
 
     # 2. Numeric feature distributions (key heavy-tailed)
-    numeric_cols = [c for c in NSL_KDD_COLUMNS if c not in ["protocol_type", "service", "flag"]]
-    key_cols = ["duration", "src_bytes", "dst_bytes", "count", "srv_count"]
+    numeric_cols = [c for c in df.columns if c not in [LABEL_COL, "split", "is_attack"]]
+    numeric_cols = [c for c in numeric_cols if pd.api.types.is_numeric_dtype(pd.to_numeric(df[c], errors="coerce"))]
+    key_cols = ["Flow Duration", "Total Fwd Packets", "Total Backward Packets", "Flow Bytes/s", "Flow Packets/s"]
     key_cols = [c for c in key_cols if c in df.columns]
+    if not key_cols:
+        key_cols = numeric_cols[:6]
     nk = len(key_cols)
     fig, axes = plt.subplots(2, (nk + 1) // 2, figsize=(12, 8))
     axes = axes.flatten()
