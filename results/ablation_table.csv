@@ -1,4 +1,4 @@
 Model,accuracy,precision,recall,f1,roc_auc
-Model_A_AdvML_Only,0.6882,0.9234,0.4931,0.6429,0.8783
-Model_B_DL_Only,0.4325,0.8846,0.0036,0.0071,0.8493
-Model_C_Hybrid,0.4538,0.9247,0.044,0.0841,0.7242
+Model_A_AdvML_Only,0.8624,0.7602,0.4363,0.5544,0.7943
+Model_B_DL_Only,0.8024,0.1111,0.001,0.002,0.7059
+Model_C_Hybrid,0.795,0.0769,0.0041,0.0077,0.3763
